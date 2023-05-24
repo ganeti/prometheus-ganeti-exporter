@@ -1,0 +1,15 @@
+Source: prometheus-ganeti-exporter
+Section: net
+Priority: extra
+Maintainer: Simon Lyngshede <slyngshede@wikimedia.org>
+Build-Depends: debhelper-compat (= 12), dh-python
+Standards-Version: 4.5.1
+Rules-Requires-Root: no
+
+Package: prometheus-ganeti-exporter
+Architecture: all
+Depends: python3-prometheus-client, python3-requests, ${misc:Depends}
+Description: Prometheus exporter for Ganeti (Python 3)
+ Collects Ganeti metrics using the Ganeti remote API
+ and exposes them as a Prometheus metrics endpoint.
+

@@ -1,0 +1,298 @@
+#!/usr/bin/python3
+#
+# Copyright 2022 Wikimedia Foundation
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are
+# met:
+#
+# 1. Redistributions of source code must retain the above copyright notice,
+# this list of conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright
+# notice, this list of conditions and the following disclaimer in the
+# documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+# IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+# TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+# PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+# PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+# LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+# NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+import argparse
+import configparser
+import sys
+import time
+from typing import Iterable
+
+import requests
+import urllib3
+from prometheus_client import Summary, start_http_server
+from prometheus_client.core import REGISTRY, GaugeMetricFamily, Metric
+
+
+class GanetiCollector():
+    """
+    Implements a Prometheus collector for Ganeti, using the rapi.
+
+    ...
+
+    Attributes
+    ----------
+    uri : str
+        uri of the RAPI for your Ganeti cluster
+    user : str
+        username for authentication against the RAPI
+    password : str
+        password for authentication against the RAPI
+    namespace : str
+        namespace of the Prometheus exporter, defaults to ganeti
+    verify : bool
+        disable TLS validation for rapi
+    """
+
+    # Mapping for metrics from the rapi to Prometheus metric type.
+    _metric_family = {
+            'ctotal': {'type': 'gauge', 'desc': 'Total installed number of CPUs'},
+            'dfree': {'type': 'gauge', 'desc':'Available disk capacity'},
+            'dtotal': {'type': 'gauge', 'desc': 'Total installed disk capacity',},
+            'mfree': {'type': 'gauge', 'desc': 'Available memory capacity'},
+            'mtotal': {'type': 'gauge', 'desc': 'Total installed memory capacity'},
+            'pinst_cnt': {'type': 'gauge', 'desc': 'Number of VMs utilizing the node as primary'},
+            'sinst_cnt': {'type': 'gauge', 'desc': 'Number of VMs utilizing the node as secondary'},
+            'oper_vcpus': {'type': 'gauge', 'desc': 'Allocated number of CPUs to instance'},
+            'oper_ram': {'type': 'gauge', 'desc': 'Allocated memory to instance'},
+            }
+
+
+    scrape_duration = Summary(
+        'ganeti_scrape_duration_seconds', 'Ganeti exporter scrape duration')
+
+
+    def __init__(self, uri: str, user: str, password: str, namespace: str = '', verify=True):
+        self.auth = (user, password)
+        self.uri = uri
+        self.tls_verify = verify
+        self.cluster_info = self._gnt_request('/2/info')
+
+        if namespace:
+            self._prefix = f'{namespace}_ganeti'
+        else:
+            self._prefix = 'ganeti_'
+
+
+    @property
+    def cluster_name(self) -> str:
+        """Return name of the connected cluster"""
+        return self.cluster_info['name']
+
+
+    def _gnt_request(self, resource: str, bulk=False):
+        uri = f'{self.uri}{resource}'
+
+        if bulk:
+            uri = f'{uri}?bulk=1'
+
+        response = requests.get(uri, auth=self.auth, verify=self.tls_verify)
+        if response.status_code != 200:
+            return {}
+        return response.json()
+
+
+    def _create_gauge(self, src_type, name, labels, description='') -> Metric:
+        prefix = self._prefix
+        if not description:
+            description = self._metric_family[name]['desc']
+        gauge = GaugeMetricFamily(f'{prefix}{src_type}_{name}', description, labels=labels)
+        return gauge
+
+
+    def _create_metric(self, src_type, name, labels) -> Metric:
+        metric_type = self._metric_family[name]['type']
+        create_method = getattr(self, f'_create_{metric_type}')
+        metric = create_method(src_type, name, labels)
+        return metric
+
+
+    def collect_node_metrics(self, nodes: Iterable[dict]) -> Iterable[Metric]:
+        """Collect nodes metrics and return Itereable of Prometheus metrics"""
+        labels = ['cluster', 'node']
+
+        metrics = {}
+        for node in nodes:
+            label_values = (self.cluster_name, node['name'])
+            for metric_name in node.keys():
+                if metric_name in self._metric_family:
+                    key = f'node_{metric_name}'
+                    if not key in metrics:
+                        metric = self._create_metric('node', metric_name, labels)
+                        metrics[key] = metric
+                    else:
+                        metric = metrics[key]
+                    metric.add_metric(label_values, node[metric_name])
+
+        return list(metrics.values())
+
+
+    def collect_instance_metrics(self, instances: Iterable[dict]) -> Iterable[Metric]:
+        """Collect instance metrics and return iterable of Prometheus metrics"""
+        labels = ['cluster', 'instance']
+
+        metrics = {}
+        for instance in instances:
+            label_values = (self.cluster_name, instance['name'])
+            for metric_name in instance.keys():
+                if metric_name in self._metric_family:
+                    key = f'instance_{metric_name}'
+                    if not key in metrics:
+                        metric = self._create_metric('instance', metric_name, labels)
+                        metrics[key] = metric
+                    else:
+                        metric = metrics[key]
+                    metric.add_metric(label_values, 0
+                                      if not instance['oper_state'] else instance[metric_name])
+
+        return list(metrics.values())
+
+
+    def cpu_allocation_per_node(self, node: dict, instances: Iterable[dict],
+                                primary=True) -> Metric:
+        """Find the vCPUs allocated to the node. If primary is False, vCPUs required
+        by secondary node is found."""
+        metric_name = 'p_oper_vcpus'
+        if primary:
+            allocated = [instance for instance in instances if instance['pnode'] == node['name']]
+        else:
+            metric_name = 's_oper_vcpus'
+            allocated = [instance for instance in instances if node['name'] in instance['snodes']]
+
+        labels = ['cluster', 'node']
+
+        vcpus = self._create_gauge('node', metric_name, labels,
+                                   description='Total number of allocated vCPUs to node')
+
+        vcpus.add_metric((self.cluster_name, node['name']),
+                         sum([instance['oper_vcpus'] for instance in allocated
+                              if instance['oper_state']]))
+        return vcpus
+
+
+    def collect_vcpu_allocation(self, nodes: Iterable[dict],
+                                instances: Iterable[dict]) -> Iterable[Metric]:
+        """Collect vCPU allocation, for nodes, primary and secondary"""
+        metrics = []
+
+        for node in nodes:
+            metrics.append(self.cpu_allocation_per_node(node, instances))
+            metrics.append(self.cpu_allocation_per_node(node, instances, primary=False))
+
+        return metrics
+
+
+    def collect_summaries(self, nodes: Iterable[dict],
+                          instances: Iterable[dict]) -> Iterable[Metric]:
+        """Create metrics based on summasion of node and instance metrics."""
+        labels = ['cluster',]
+        instance_count = self._create_gauge('cluster', 'instance_count', labels,
+                description='Total number of running instances')
+        instance_count.add_metric((self.cluster_name,), len(instances))
+
+        node_count = self._create_gauge('cluster', 'node_count', labels,
+                description='Total number of nodes')
+        node_count.add_metric((self.cluster_name,), len(nodes))
+
+        offline_nodes = self._create_gauge('cluster', 'offline_nodes', labels,
+                description='Number of nodes offline')
+        offline_nodes.add_metric((self.cluster_name,),
+                                 len([node for node in nodes if node['offline']]))
+
+        return [instance_count, node_count, offline_nodes]
+
+
+    @scrape_duration.time()
+    def collect(self) -> Iterable[Metric]:
+        """Entry point for the Prometheus server to update and expose metrics."""
+        nodes = self._gnt_request('/2/nodes', bulk=True)
+        instances = self._gnt_request('/2/instances', bulk=True)
+
+        metrics = []
+        metrics.extend(self.collect_node_metrics(nodes))
+        metrics.extend(self.collect_instance_metrics(instances))
+        metrics.extend(self.collect_summaries(nodes, instances))
+        metrics.extend(self.collect_vcpu_allocation(nodes, instances))
+        return metrics
+
+
+if __name__ == '__main__':
+    """Configuration file in ini format.
+    Example:
+
+        [default]
+        port = 8080
+        verify_tls = True
+
+        [ganeti]
+        api = https://ganeti01.cluster.my-org.net:5080
+        user = readonly_user
+        password = secret
+
+    Port number under "default" indicates on which port the exporter should
+    expose the collected metrics.
+
+    TLS verification defaults to True, and can be omitted.
+
+    For communication with the Ganeti rapi, ensure that the exporter can reach
+    the provided api URI and that the user has been created. Write access is not
+    required and a read-only API user is recommended.
+    """
+
+    parser = argparse.ArgumentParser(description='Prometheus Exporter for Ganeti.')
+    parser.add_argument('--config',
+                        default='/etc/ganeti/prometheus.ini',
+                        help='path to configuration file.')
+
+    args = parser.parse_args()
+    if not args.config:
+        parser.error('No config file provided')
+
+    config = configparser.ConfigParser()
+    config_files = config.read(args.config)
+
+    if not config_files:
+        parser.error('Invalid configuration file')
+
+    if 'ganeti' not in config.sections():
+        parser.error('Unable to parse configuration, section "ganeti" not found')
+
+    required_config_keys = set(['api', 'password', 'user'])
+    missing_config_keys = required_config_keys - set(config['ganeti'].keys())
+    if missing_config_keys:
+        parser.error(f'Missing configuration for: {", ".join(missing_config_keys)} in ganeti section')
+
+    ganeti_api_endpoint = config['ganeti']['api']
+    ganeti_user = config['ganeti']['user']
+    ganeti_password = config['ganeti']['password']
+
+    verify_tls = config.getboolean('default', 'verify_tls', fallback=True)
+
+    # If TLS verfication has been disabled, don't spam the logs with warnings
+    # that we're already well aware of.
+    if not verify_tls:
+        urllib3.disable_warnings()
+
+    c = GanetiCollector(ganeti_api_endpoint, ganeti_user, ganeti_password, verify=verify_tls)
+    REGISTRY.register(c)
+
+    start_http_server(config.getint('default', 'port', fallback=8000))
+
+    try:
+        while True:
+            time.sleep(config.getboolean('default', 'refresh_interval', fallback=10))
+    except KeyboardInterrupt:
+        sys.exit(1)
