@@ -1,0 +1,10 @@
+[default]
+# the following settings are at default value
+port = 8000
+verify_tls = True
+refresh_interval = 10
+
+[ganeti]
+api = https://ganeti01.cluster.my-org.net:5080
+user = readonly_user
+password = secret
