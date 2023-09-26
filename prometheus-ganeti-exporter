@@ -1,6 +1,9 @@
 #!/usr/bin/python3
+"""prometheus exporter for Ganeti cluster statistics"""
+
 #
-# Copyright 2022 Wikimedia Foundation
+# Copyright (c) 2022, Wikimedia Foundation
+# Copyright (c) 2023, Ganeti Project
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -59,23 +62,51 @@ class GanetiCollector():
 
     # Mapping for metrics from the rapi to Prometheus metric type.
     _metric_family = {
-            'ctotal': {'type': 'gauge', 'desc': 'Total installed number of CPUs'},
-            'dfree': {'type': 'gauge', 'desc':'Available disk capacity'},
-            'dtotal': {'type': 'gauge', 'desc': 'Total installed disk capacity',},
-            'mfree': {'type': 'gauge', 'desc': 'Available memory capacity'},
-            'mtotal': {'type': 'gauge', 'desc': 'Total installed memory capacity'},
-            'pinst_cnt': {'type': 'gauge', 'desc': 'Number of VMs utilizing the node as primary'},
-            'sinst_cnt': {'type': 'gauge', 'desc': 'Number of VMs utilizing the node as secondary'},
-            'oper_vcpus': {'type': 'gauge', 'desc': 'Allocated number of CPUs to instance'},
-            'oper_ram': {'type': 'gauge', 'desc': 'Allocated memory to instance'},
-            }
+        'ctotal': {
+            'type': 'gauge',
+            'desc': 'Total installed number of CPUs'
+        },
+        'dfree': {
+            'type': 'gauge',
+            'desc':'Available disk capacity'
+        },
+        'dtotal': {
+            'type': 'gauge',
+            'desc': 'Total installed disk capacity',
+        },
+        'mfree': {
+            'type': 'gauge',
+            'desc': 'Available memory capacity'
+        },
+        'mtotal': {
+            'type': 'gauge',
+            'desc': 'Total installed memory capacity'
+        },
+        'pinst_cnt': {
+            'type': 'gauge',
+            'desc': 'Number of VMs utilizing the node as primary'
+        },
+        'sinst_cnt': {
+            'type': 'gauge',
+            'desc': 'Number of VMs utilizing the node as secondary'
+        },
+        'oper_vcpus': {
+            'type': 'gauge',
+            'desc': 'Allocated number of CPUs to instance'
+        },
+        'oper_ram': {
+            'type': 'gauge',
+            'desc': 'Allocated memory to instance'
+        },
+    }
 
 
     scrape_duration = Summary(
         'ganeti_scrape_duration_seconds', 'Ganeti exporter scrape duration')
 
 
-    def __init__(self, uri: str, user: str, password: str, namespace: str = '', verify=True):
+    def __init__(self, uri: str, user: str, password: str, namespace: str = '',
+                 verify=True):
         self.auth = (user, password)
         self.uri = uri
         self.tls_verify = verify
@@ -99,7 +130,8 @@ class GanetiCollector():
         if bulk:
             uri = f'{uri}?bulk=1'
 
-        response = requests.get(uri, auth=self.auth, verify=self.tls_verify)
+        response = requests.get(uri, auth=self.auth, verify=self.tls_verify,
+                                timeout=30)
         if response.status_code != 200:
             return {}
         return response.json()
@@ -109,7 +141,8 @@ class GanetiCollector():
         prefix = self._prefix
         if not description:
             description = self._metric_family[name]['desc']
-        gauge = GaugeMetricFamily(f'{prefix}{src_type}_{name}', description, labels=labels)
+        gauge = GaugeMetricFamily(f'{prefix}{src_type}_{name}',
+                                  description, labels=labels)
         return gauge
 
 
@@ -131,7 +164,8 @@ class GanetiCollector():
                 if metric_name in self._metric_family:
                     key = f'node_{metric_name}'
                     if not key in metrics:
-                        metric = self._create_metric('node', metric_name, labels)
+                        metric = self._create_metric('node', metric_name,
+                                                     labels)
                         metrics[key] = metric
                     else:
                         metric = metrics[key]
@@ -140,7 +174,8 @@ class GanetiCollector():
         return list(metrics.values())
 
 
-    def collect_instance_metrics(self, instances: Iterable[dict]) -> Iterable[Metric]:
+    def collect_instance_metrics(self,
+                                 instances: Iterable[dict]) -> Iterable[Metric]:
         """Collect instance metrics and return iterable of Prometheus metrics"""
         labels = ['cluster', 'instance']
 
@@ -151,35 +186,41 @@ class GanetiCollector():
                 if metric_name in self._metric_family:
                     key = f'instance_{metric_name}'
                     if not key in metrics:
-                        metric = self._create_metric('instance', metric_name, labels)
+                        metric = self._create_metric('instance', metric_name,
+                                                     labels)
                         metrics[key] = metric
                     else:
                         metric = metrics[key]
                     metric.add_metric(label_values, 0
-                                      if not instance['oper_state'] else instance[metric_name])
+                                      if not instance['oper_state'] else
+                                      instance[metric_name])
 
         return list(metrics.values())
 
 
     def cpu_allocation_per_node(self, node: dict, instances: Iterable[dict],
                                 primary=True) -> Metric:
-        """Find the vCPUs allocated to the node. If primary is False, vCPUs required
-        by secondary node is found."""
+        """Find the vCPUs allocated to the node. If primary is False, vCPUs
+        required by secondary node is found."""
         metric_name = 'p_oper_vcpus'
         if primary:
-            allocated = [instance for instance in instances if instance['pnode'] == node['name']]
+            allocated = [instance for instance in instances
+                         if instance['pnode'] == node['name']]
         else:
             metric_name = 's_oper_vcpus'
-            allocated = [instance for instance in instances if node['name'] in instance['snodes']]
+            allocated = [instance for instance in instances
+                         if node['name'] in instance['snodes']]
 
         labels = ['cluster', 'node']
 
         vcpus = self._create_gauge('node', metric_name, labels,
-                                   description='Total number of allocated vCPUs to node')
-
+                                   description='Total number of allocated '
+                                   'vCPUs to node')
+        # pylint: disable=R1728
         vcpus.add_metric((self.cluster_name, node['name']),
                          sum([instance['oper_vcpus'] for instance in allocated
                               if instance['oper_state']]))
+        # pylint: enable=R1728
         return vcpus
 
 
@@ -190,7 +231,8 @@ class GanetiCollector():
 
         for node in nodes:
             metrics.append(self.cpu_allocation_per_node(node, instances))
-            metrics.append(self.cpu_allocation_per_node(node, instances, primary=False))
+            metrics.append(self.cpu_allocation_per_node(node, instances,
+                                                        primary=False))
 
         return metrics
 
@@ -210,14 +252,16 @@ class GanetiCollector():
         offline_nodes = self._create_gauge('cluster', 'offline_nodes', labels,
                 description='Number of nodes offline')
         offline_nodes.add_metric((self.cluster_name,),
-                                 len([node for node in nodes if node['offline']]))
+                                 len([node for node in nodes
+                                      if node['offline']]))
 
         return [instance_count, node_count, offline_nodes]
 
 
     @scrape_duration.time()
     def collect(self) -> Iterable[Metric]:
-        """Entry point for the Prometheus server to update and expose metrics."""
+        """Entry point for the Prometheus server to update and
+        expose metrics."""
         nodes = self._gnt_request('/2/nodes', bulk=True)
         instances = self._gnt_request('/2/instances', bulk=True)
 
@@ -230,29 +274,9 @@ class GanetiCollector():
 
 
 if __name__ == '__main__':
-    """Configuration file in ini format.
-    Example:
+    parser = argparse.ArgumentParser(
+        description='Prometheus Exporter for Ganeti.')
 
-        [default]
-        port = 8080
-        verify_tls = True
-
-        [ganeti]
-        api = https://ganeti01.cluster.my-org.net:5080
-        user = readonly_user
-        password = secret
-
-    Port number under "default" indicates on which port the exporter should
-    expose the collected metrics.
-
-    TLS verification defaults to True, and can be omitted.
-
-    For communication with the Ganeti rapi, ensure that the exporter can reach
-    the provided api URI and that the user has been created. Write access is not
-    required and a read-only API user is recommended.
-    """
-
-    parser = argparse.ArgumentParser(description='Prometheus Exporter for Ganeti.')
     parser.add_argument('--config',
                         default='/etc/ganeti/prometheus.ini',
                         help='path to configuration file.')
@@ -268,12 +292,14 @@ if __name__ == '__main__':
         parser.error('Invalid configuration file')
 
     if 'ganeti' not in config.sections():
-        parser.error('Unable to parse configuration, section "ganeti" not found')
+        parser.error('Unable to parse configuration, section "ganeti" '
+                     'not found')
 
     required_config_keys = set(['api', 'password', 'user'])
     missing_config_keys = required_config_keys - set(config['ganeti'].keys())
     if missing_config_keys:
-        parser.error(f'Missing configuration for: {", ".join(missing_config_keys)} in ganeti section')
+        parser.error('Missing configuration for: '
+                     f'{", ".join(missing_config_keys)} in ganeti section')
 
     ganeti_api_endpoint = config['ganeti']['api']
     ganeti_user = config['ganeti']['user']
@@ -286,13 +312,15 @@ if __name__ == '__main__':
     if not verify_tls:
         urllib3.disable_warnings()
 
-    c = GanetiCollector(ganeti_api_endpoint, ganeti_user, ganeti_password, verify=verify_tls)
+    c = GanetiCollector(ganeti_api_endpoint, ganeti_user, ganeti_password,
+                        verify=verify_tls)
     REGISTRY.register(c)
 
     start_http_server(config.getint('default', 'port', fallback=8000))
 
     try:
         while True:
-            time.sleep(config.getboolean('default', 'refresh_interval', fallback=10))
+            time.sleep(config.getboolean('default', 'refresh_interval',
+                                         fallback=10))
     except KeyboardInterrupt:
         sys.exit(1)
