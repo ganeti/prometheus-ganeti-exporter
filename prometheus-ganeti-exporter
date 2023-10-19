@@ -320,7 +320,7 @@ if __name__ == '__main__':
 
     try:
         while True:
-            time.sleep(config.getboolean('default', 'refresh_interval',
+            time.sleep(config.getint('default', 'refresh_interval',
                                          fallback=10))
     except KeyboardInterrupt:
         sys.exit(1)
