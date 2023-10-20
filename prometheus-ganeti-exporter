@@ -100,6 +100,16 @@ class GanetiCollector():
         },
     }
 
+    # Mapping of Ganeti job states to arbitrary numbers
+    _job_states = {
+        'queued': 0,
+        'waiting': 1,
+        'canceling': 2,
+        'running': 3,
+        'canceled': 4,
+        'success': 5,
+        'error': 6
+    }
 
     scrape_duration = Summary(
         'ganeti_scrape_duration_seconds', 'Ganeti exporter scrape duration')
@@ -258,18 +268,54 @@ class GanetiCollector():
         return [instance_count, node_count, offline_nodes]
 
 
+    def collect_job_metrics(self, jobs: Iterable[dict]) -> Iterable[Metric]:
+        """Create metrics based on job information"""
+
+        labels = ['cluster', 'job-id', 'job-operation', ]
+        job_status = self._create_gauge('cluster', 'job_status', labels,
+               description='Ganeti jobs status')
+        job_wait_time = self._create_gauge('cluster', 'job_wait_time', labels,
+               description='Queue wait time for jobs (seconds)')
+        job_run_time = self._create_gauge('cluster', 'job_run_time', labels,
+                                           description='Run time for jobs (seconds)')
+
+        for job in jobs:
+            op_id = "unknown"
+            if 'ops' in job and job['ops'] is not None:
+                if (job['ops'] is not None and len(job['ops']) and
+                        'OP_ID' in job['ops'][0]):
+                    op_id = job['ops'][0]['OP_ID']
+
+            job_status.add_metric((self.cluster_name, str(job['id']), op_id),
+                                  self._job_states[job['status']])
+
+            if job['start_ts'] is not None and job['received_ts'] is not None:
+                wait_time = job['start_ts'][0] - job['received_ts'][0]
+                job_wait_time.add_metric((self.cluster_name, str(job['id']), op_id),
+                                         wait_time)
+
+            if job['start_ts'] is not None and job['end_ts'] is not None:
+                run_time = job['end_ts'][0] - job['start_ts'][0]
+                job_run_time.add_metric((self.cluster_name, str(job['id']), op_id),
+                                        run_time)
+
+        return [job_status, job_wait_time, job_run_time]
+
+
     @scrape_duration.time()
     def collect(self) -> Iterable[Metric]:
         """Entry point for the Prometheus server to update and
         expose metrics."""
         nodes = self._gnt_request('/2/nodes', bulk=True)
         instances = self._gnt_request('/2/instances', bulk=True)
+        jobs = self._gnt_request('/2/jobs', bulk=True)
 
         metrics = []
         metrics.extend(self.collect_node_metrics(nodes))
         metrics.extend(self.collect_instance_metrics(instances))
         metrics.extend(self.collect_summaries(nodes, instances))
         metrics.extend(self.collect_vcpu_allocation(nodes, instances))
+        metrics.extend(self.collect_job_metrics(jobs))
         return metrics
 
 
