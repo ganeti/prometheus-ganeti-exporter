@@ -247,9 +247,9 @@ class GanetiCollector():
         return metrics
 
 
-    def collect_summaries(self, nodes: Iterable[dict],
-                          instances: Iterable[dict]) -> Iterable[Metric]:
-        """Create metrics based on summasion of node and instance metrics."""
+    def collect_summaries(self, nodes: Iterable[dict], instances: Iterable[dict],
+                          jobs: Iterable[dict]) -> Iterable[Metric]:
+        """Create metrics based on summasion of node, instance and job metrics."""
         labels = ['cluster',]
         instance_count = self._create_gauge('cluster', 'instance_count', labels,
                 description='Total number of running instances')
@@ -265,18 +265,22 @@ class GanetiCollector():
                                  len([node for node in nodes
                                       if node['offline']]))
 
-        return [instance_count, node_count, offline_nodes]
+        labels = ['cluster', 'job_status',]
+        job_count = self._create_gauge('cluster', 'jobs', labels,
+                description='Number of jobs in queue')
+        for status, _ in self._job_states.items():
+            job_count.add_metric((self.cluster_name, status), len([job for job in jobs if job['status'] == status]))
+
+        return [instance_count, node_count, offline_nodes, job_count]
 
 
     def collect_job_metrics(self, jobs: Iterable[dict]) -> Iterable[Metric]:
         """Create metrics based on job information"""
 
-        labels = ['cluster', 'job-id', 'job-operation', ]
-        job_status = self._create_gauge('cluster', 'job_status', labels,
-               description='Ganeti jobs status')
-        job_wait_time = self._create_gauge('cluster', 'job_wait_time', labels,
+        labels = ['cluster', 'job_id', 'job_operation', ]
+        job_wait_time = self._create_gauge('job', 'wait_time', labels,
                description='Queue wait time for jobs (seconds)')
-        job_run_time = self._create_gauge('cluster', 'job_run_time', labels,
+        job_run_time = self._create_gauge('job', 'run_time', labels,
                                            description='Run time for jobs (seconds)')
 
         for job in jobs:
@@ -285,9 +289,6 @@ class GanetiCollector():
                 if (job['ops'] is not None and len(job['ops']) and
                         'OP_ID' in job['ops'][0]):
                     op_id = job['ops'][0]['OP_ID']
-
-            job_status.add_metric((self.cluster_name, str(job['id']), op_id),
-                                  self._job_states[job['status']])
 
             if job['start_ts'] is not None and job['received_ts'] is not None:
                 wait_time = job['start_ts'][0] - job['received_ts'][0]
@@ -299,7 +300,7 @@ class GanetiCollector():
                 job_run_time.add_metric((self.cluster_name, str(job['id']), op_id),
                                         run_time)
 
-        return [job_status, job_wait_time, job_run_time]
+        return [job_wait_time, job_run_time]
 
 
     @scrape_duration.time()
@@ -313,7 +314,7 @@ class GanetiCollector():
         metrics = []
         metrics.extend(self.collect_node_metrics(nodes))
         metrics.extend(self.collect_instance_metrics(instances))
-        metrics.extend(self.collect_summaries(nodes, instances))
+        metrics.extend(self.collect_summaries(nodes, instances, jobs))
         metrics.extend(self.collect_vcpu_allocation(nodes, instances))
         metrics.extend(self.collect_job_metrics(jobs))
         return metrics
