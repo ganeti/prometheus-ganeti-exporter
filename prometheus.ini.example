@@ -8,3 +8,18 @@ refresh_interval = 10
 api = https://ganeti01.cluster.my-org.net:5080
 user = readonly_user
 password = secret
+
+[htools]
+# This defaults to False
+#hspace_enabled = True
+#hspace_path = /usr/bin/hspace
+# Please specify the disk template you would like to simulate
+#hspace_disk_template = drbd
+# Please specify the instance specs for the simulation as $disk,$memory,$vcpus (disk/memory are expected in megaybtes)
+#hspace_alloc_data = 20480,2048,2
+
+# This defaults to False
+#hbal_enabled = True
+#hbal_path = /usr/bin/hbal
+# You can optionally add parameters like --no-instance-moves, --exclusion-tags etc.
+#hbal_extra_parameters = --exclusion-tags=a,b

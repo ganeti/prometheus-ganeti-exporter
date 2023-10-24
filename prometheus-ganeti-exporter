@@ -30,8 +30,11 @@
 
 import argparse
 import configparser
+import signal
+import subprocess
 import sys
 import time
+import logging
 from typing import Iterable
 
 import requests
@@ -48,16 +51,8 @@ class GanetiCollector():
 
     Attributes
     ----------
-    uri : str
-        uri of the RAPI for your Ganeti cluster
-    user : str
-        username for authentication against the RAPI
-    password : str
-        password for authentication against the RAPI
-    namespace : str
-        namespace of the Prometheus exporter, defaults to ganeti
-    verify : bool
-        disable TLS validation for rapi
+    config : dict
+        dictionary containing all parameters from the config file
     """
 
     # Mapping for metrics from the rapi to Prometheus metric type.
@@ -115,15 +110,14 @@ class GanetiCollector():
         'ganeti_scrape_duration_seconds', 'Ganeti exporter scrape duration')
 
 
-    def __init__(self, uri: str, user: str, password: str, namespace: str = '',
-                 verify=True):
-        self.auth = (user, password)
-        self.uri = uri
-        self.tls_verify = verify
+    def __init__(self, config: dict):
+        self.config = config
+        self.uri = self.config["ganeti_api_endpoint"]
+        self.auth = (self.config["ganeti_user"], self.config["ganeti_password"])
         self.cluster_info = self._gnt_request('/2/info')
 
-        if namespace:
-            self._prefix = f'{namespace}_ganeti'
+        if self.config["namespace"]:
+            self._prefix = f'{self.config["namespace"]}_ganeti_'
         else:
             self._prefix = 'ganeti_'
 
@@ -140,14 +134,104 @@ class GanetiCollector():
         if bulk:
             uri = f'{uri}?bulk=1'
 
-        response = requests.get(uri, auth=self.auth, verify=self.tls_verify,
-                                timeout=30)
+        response = requests.get(uri, auth=self.auth,
+                                verify=self.config["verify_tls"], timeout=30)
         if response.status_code != 200:
             return {}
         return response.json()
 
 
-    def _create_gauge(self, src_type, name, labels, description='') -> Metric:
+    def _run_hspace(self):
+        hspace_cmd = [
+            self.config["hspace_path"],
+            "-m",
+            self._add_auth_to_url(self.uri, self.auth[0], self.auth[1]),
+            f"--disk-template={self.config['hspace_disk_template']}",
+            f"--standard-alloc={self.config['hspace_alloc_data']}",
+            "--machine-readable=yes",
+            "--quiet"
+        ]
+        logging.debug('Executing %s', hspace_cmd)
+        start_time = time.time()
+        hspace_timeout = self.config["refresh_interval"] - 5
+        try:
+            command = subprocess.run(hspace_cmd, capture_output=True,
+                                     check=False, timeout=hspace_timeout)
+        except subprocess.TimeoutExpired:
+            logging.error("Running hspace exceeded the timeout of "
+                          "%d seconds, killing", hspace_timeout)
+            return None
+        end_time = time.time()
+
+        logging.debug(
+            "Running hspace took %d second(s)", int(end_time - start_time))
+
+        if command.returncode == 0:
+            hspace_data = {}
+            for line in command.stdout.decode('utf-8').split("\n"):
+                if '=' in line:
+                    parts = line.strip().split('=', maxsplit=1)
+                    hspace_data[parts[0]] = parts[1]
+            return hspace_data
+
+        logging.error('Failed to run %s', hspace_cmd)
+        logging.error('Returncode: %d, Stdout: %s, Stderr: %s',
+                      command.returncode, command.stdout, command.stderr)
+        return None
+
+    def _run_hbal(self):
+        hbal_data = {}
+        node_groups = self._gnt_request('/2/groups')
+        for group in node_groups:
+            group_name = group["name"]
+            hbal_cmd = [
+                self.config["hbal_path"],
+                "-m",
+                self._add_auth_to_url(self.uri, self.auth[0], self.auth[1]),
+                "-G",
+                f"{group_name}",
+                self.config["hbal_extra_parameters"]
+            ]
+            logging.debug('Executing %s', hbal_cmd)
+            start_time = time.time()
+            command = subprocess.run(hbal_cmd, capture_output=True,
+                                     check=False)
+            end_time = time.time()
+
+            logging.debug(
+                "Running hbal took %d second(s)", int(end_time - start_time))
+
+            if command.returncode == 0:
+                for line in command.stdout.decode('utf-8').split("\n"):
+                    if line.startswith("Initial score: "):
+                        parts = line.split(' ')
+                        initial_score = float(parts[2])
+                        hbal_data[group_name] = {
+                            'initial_score': initial_score,
+                            'target_score': initial_score
+                        }
+                    if line.startswith('Cluster score improved from'):
+                        parts = line.split(' ')
+                        hbal_data[group_name] = {
+                            'initial_score': float(parts[4]),
+                            'target_score': float(parts[6])
+                        }
+                        break
+            else:
+                logging.error('Failed to run %s', hbal_cmd)
+                logging.error('Returncode: %d, Stdout: %s, Stderr: %s',
+                              command.returncode, command.stdout,
+                              command.stderr)
+                return None
+        return hbal_data
+
+    def _add_auth_to_url(self, url: str, user: str, password: str) -> str:
+        url_parts = urllib3.util.parse_url(url)
+        return f"{url_parts.scheme}://{user}:{password}@{url_parts.netloc}"
+
+
+    def _create_gauge(self, src_type, name, labels, description='') -> (
+            GaugeMetricFamily):
         prefix = self._prefix
         if not description:
             description = self._metric_family[name]['desc']
@@ -247,12 +331,13 @@ class GanetiCollector():
         return metrics
 
 
-    def collect_summaries(self, nodes: Iterable[dict], instances: Iterable[dict],
+    def collect_summaries(self, nodes: Iterable[dict],
+                          instances: Iterable[dict],
                           jobs: Iterable[dict]) -> Iterable[Metric]:
-        """Create metrics based on summasion of node, instance and job metrics."""
+        """Create metrics based on summation of node, instance, job metrics."""
         labels = ['cluster',]
-        instance_count = self._create_gauge('cluster', 'instance_count', labels,
-                description='Total number of running instances')
+        instance_count = self._create_gauge('cluster', 'instance_count',
+                        labels, description='Total number of running instances')
         instance_count.add_metric((self.cluster_name,), len(instances))
 
         node_count = self._create_gauge('cluster', 'node_count', labels,
@@ -269,7 +354,8 @@ class GanetiCollector():
         job_count = self._create_gauge('cluster', 'jobs', labels,
                 description='Number of jobs in queue')
         for status, _ in self._job_states.items():
-            job_count.add_metric((self.cluster_name, status), len([job for job in jobs if job['status'] == status]))
+            job_count.add_metric((self.cluster_name, status),
+                         len([job for job in jobs if job['status'] == status]))
 
         return [instance_count, node_count, offline_nodes, job_count]
 
@@ -281,7 +367,7 @@ class GanetiCollector():
         job_wait_time = self._create_gauge('job', 'wait_time', labels,
                description='Queue wait time for jobs (seconds)')
         job_run_time = self._create_gauge('job', 'run_time', labels,
-                                           description='Run time for jobs (seconds)')
+                                   description='Run time for jobs (seconds)')
 
         for job in jobs:
             op_id = "unknown"
@@ -292,24 +378,60 @@ class GanetiCollector():
 
             if job['start_ts'] is not None and job['received_ts'] is not None:
                 wait_time = job['start_ts'][0] - job['received_ts'][0]
-                job_wait_time.add_metric((self.cluster_name, str(job['id']), op_id),
-                                         wait_time)
+                job_wait_time.add_metric((self.cluster_name, str(job['id']),
+                                          op_id), wait_time)
 
             if job['start_ts'] is not None and job['end_ts'] is not None:
                 run_time = job['end_ts'][0] - job['start_ts'][0]
-                job_run_time.add_metric((self.cluster_name, str(job['id']), op_id),
-                                        run_time)
+                job_run_time.add_metric((self.cluster_name, str(job['id']),
+                                         op_id), run_time)
 
         return [job_wait_time, job_run_time]
 
+
+    def collect_hspace_metrics(self, data: dict) -> Iterable[Metric]:
+        """Create metrics based on data returned by hspace"""
+        labels = ['cluster', ]
+        hspace_allocs = self._create_gauge('hspace',
+                                           'allocatable_instances', labels,
+                                           description='Allocatable instances')
+
+        hspace_allocs.add_metric((self.cluster_name,),
+                                          int(data["HTS_ALLOC_INSTANCES"]))
+
+        return [hspace_allocs]
+
+    def collect_hbal_metrics(self, node_groups: dict) -> Iterable[Metric]:
+        """Create metrics based on data returned by hspace"""
+        labels = ['cluster', 'node_group']
+        hbal_initial = self._create_gauge('hbal', 'initial_score', labels,
+                              description='Current hbal score per node group')
+        hbal_target = self._create_gauge('hbal', 'target_score', labels,
+                             description='Achievable hbal score per node group')
+
+        for node_group, data in node_groups.items():
+            hbal_initial.add_metric((self.cluster_name, node_group),
+                                    data["initial_score"])
+            hbal_target.add_metric((self.cluster_name, node_group),
+                                   data["target_score"])
+
+        return [hbal_initial, hbal_target]
 
     @scrape_duration.time()
     def collect(self) -> Iterable[Metric]:
         """Entry point for the Prometheus server to update and
         expose metrics."""
+        hspace_data = None
+        hbal_data = None
+
         nodes = self._gnt_request('/2/nodes', bulk=True)
         instances = self._gnt_request('/2/instances', bulk=True)
         jobs = self._gnt_request('/2/jobs', bulk=True)
+
+        if self.config["hspace_enabled"]:
+            hspace_data = self._run_hspace()
+        if self.config["hbal_enabled"]:
+            hbal_data = self._run_hbal()
 
         metrics = []
         metrics.extend(self.collect_node_metrics(nodes))
@@ -317,57 +439,129 @@ class GanetiCollector():
         metrics.extend(self.collect_summaries(nodes, instances, jobs))
         metrics.extend(self.collect_vcpu_allocation(nodes, instances))
         metrics.extend(self.collect_job_metrics(jobs))
+        if hspace_data is not None:
+            metrics.extend(self.collect_hspace_metrics(hspace_data))
+        if hbal_data is not None:
+            metrics.extend(self.collect_hbal_metrics(hbal_data))
+
         return metrics
 
 
-if __name__ == '__main__':
+def parse_config(path: str) -> Iterable[dict]:
+    config = configparser.ConfigParser()
+    config_files = config.read(path)
+
+    if not config_files:
+        logging.error('Invalid configuration file')
+        sys.exit(1)
+
+    if 'ganeti' not in config.sections():
+        logging.error('Unable to parse configuration, section "ganeti" not '
+                      'found')
+        sys.exit(1)
+
+    required_config_keys = set(['api', 'password', 'user'])
+    missing_config_keys = required_config_keys - set(config['ganeti'].keys())
+    if missing_config_keys:
+        logging.error('Missing configuration for: %s in ganeti section',
+                      ", ".join(missing_config_keys))
+        sys.exit(1)
+
+    config_data = {
+        'ganeti_api_endpoint': config['ganeti']['api'],
+        'ganeti_user': config['ganeti']['user'],
+        'ganeti_password': config['ganeti']['password'],
+        'verify_tls': config.getboolean('default', 'verify_tls', fallback=True),
+        'port': config.getint('default', 'port', fallback=8000),
+        'namespace': config.get('default', 'namespace', fallback=""),
+        'refresh_interval': config.getint('default', 'refresh_interval',
+                                          fallback=30),
+        'hspace_enabled': config.getboolean('htools', 'hspace_enabled',
+                                            fallback=False),
+        'hspace_path': config.get('htools', 'hspace_path',
+                                  fallback='/usr/bin/hspace'),
+        'hspace_disk_template': config.get('htools', 'hspace_disk_template',
+                                           fallback='plain'),
+        'hspace_alloc_data': config.get('htools', 'hspace_alloc_data',
+                                        fallback='20480,2048,2'),
+        'hbal_enabled': config.getboolean('htools', 'hbal_enabled',
+                                          fallback=False),
+        'hbal_path': config.get('htools', 'hbal_path',
+                                fallback='/usr/bin/hbal'),
+        'hbal_extra_parameters': config.get('htools', 'hbal_extra_parameters',
+                                            fallback='')
+    }
+
+    logging.debug('Loaded configuration: %s', config_data)
+    if config_data["hbal_enabled"] or config_data["hspace_enabled"]:
+        logging.warning("Data collections via htools enabled - please raise "
+                        "prometheus scrape_timeout to at least 20 seconds. "
+                        "Depending on the cluster size, executing the tools "
+                        "may easily hit the default timeout of 10 seconds.")
+
+    return config_data
+
+
+# pylint: disable=unused-argument
+def handle_sigterm(sig, frame):
+    logging.info("Received SIGTERM, terminating")
+    sys.exit(0)
+# pylint: enable=unused-argument
+
+
+def main():
     parser = argparse.ArgumentParser(
         description='Prometheus Exporter for Ganeti.')
 
     parser.add_argument('--config',
                         default='/etc/ganeti/prometheus.ini',
                         help='path to configuration file.')
+    parser.add_argument('--loglevel',
+                        default='warning',
+                        choices=['error', 'warning', 'info', 'debug'],
+                        help='set the loglevel (debug level may print '
+                             'sensitive data to the console!)')
 
     args = parser.parse_args()
     if not args.config:
         parser.error('No config file provided')
 
-    config = configparser.ConfigParser()
-    config_files = config.read(args.config)
+    if args.loglevel == 'error':
+        loglevel = logging.ERROR
+    elif args.loglevel == 'warning':
+        loglevel = logging.WARNING
+    elif args.loglevel == 'debug':
+        loglevel = logging.DEBUG
+    else:
+        loglevel = logging.INFO
+    logging.basicConfig(format='%(levelname)s: %(message)s', level=loglevel)
+    logging.info("Loglevel set to %s",
+                 logging.getLevelName(logging.getLogger().getEffectiveLevel()))
 
-    if not config_files:
-        parser.error('Invalid configuration file')
+    signal.signal(signal.SIGTERM, handle_sigterm)
 
-    if 'ganeti' not in config.sections():
-        parser.error('Unable to parse configuration, section "ganeti" '
-                     'not found')
-
-    required_config_keys = set(['api', 'password', 'user'])
-    missing_config_keys = required_config_keys - set(config['ganeti'].keys())
-    if missing_config_keys:
-        parser.error('Missing configuration for: '
-                     f'{", ".join(missing_config_keys)} in ganeti section')
-
-    ganeti_api_endpoint = config['ganeti']['api']
-    ganeti_user = config['ganeti']['user']
-    ganeti_password = config['ganeti']['password']
-
-    verify_tls = config.getboolean('default', 'verify_tls', fallback=True)
+    config = parse_config(args.config)
 
     # If TLS verfication has been disabled, don't spam the logs with warnings
     # that we're already well aware of.
-    if not verify_tls:
+    if not config["verify_tls"]:
+        logging.warning("Disabling TLS verification as requested by "
+                        "configuration")
         urllib3.disable_warnings()
 
-    c = GanetiCollector(ganeti_api_endpoint, ganeti_user, ganeti_password,
-                        verify=verify_tls)
+    logging.info('Initialiazing Ganeti Collector')
+    c = GanetiCollector(config)
     REGISTRY.register(c)
 
-    start_http_server(config.getint('default', 'port', fallback=8000))
+    logging.info('Starting HTTP server on 0.0.0.0:%d,', config["port"])
+    start_http_server(config["port"])
 
     try:
         while True:
-            time.sleep(config.getint('default', 'refresh_interval',
-                                         fallback=10))
+            time.sleep(config["refresh_interval"])
     except KeyboardInterrupt:
         sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()

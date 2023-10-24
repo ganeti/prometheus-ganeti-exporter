@@ -51,12 +51,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "text",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           }
@@ -192,7 +188,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "text",
                 "value": null
               }
             ]
@@ -258,7 +254,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "text",
                 "value": null
               }
             ]
@@ -325,7 +321,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "text",
                 "value": null
               }
             ]
@@ -392,7 +388,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "text",
                 "value": null
               }
             ]
@@ -460,12 +456,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "text",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           }
@@ -531,7 +523,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "text",
                 "value": null
               }
             ]
@@ -593,6 +585,84 @@
           "color": {
             "mode": "thresholds"
           },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 10
+              },
+              {
+                "color": "yellow",
+                "value": 20
+              },
+              {
+                "color": "green",
+                "value": 30
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 3,
+        "x": 6,
+        "y": 6
+      },
+      "id": 32,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.1.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "c5daef96-fb01-4c3c-b606-75891ad59434"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "ganeti_hspace_allocatable_instances{cluster=\"$cluster\"}",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "Allocatable Instances",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "c5daef96-fb01-4c3c-b606-75891ad59434"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
           "decimals": 1,
           "mappings": [],
           "thresholds": {
@@ -618,7 +688,7 @@
       "gridPos": {
         "h": 5,
         "w": 3,
-        "x": 6,
+        "x": 9,
         "y": 6
       },
       "id": 23,
@@ -673,74 +743,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 3,
-        "x": 9,
-        "y": 6
-      },
-      "id": 29,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "pluginVersion": "10.1.5",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "c5daef96-fb01-4c3c-b606-75891ad59434"
-          },
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "sum(ganeti_instance_oper_vcpus{cluster=\"$cluster\"})",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
-          "instant": false,
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "A",
-          "useBackend": false
-        }
-      ],
-      "title": "Instance vCPUs allocated",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "c5daef96-fb01-4c3c-b606-75891ad59434"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
+                "color": "text",
                 "value": null
               }
             ]
@@ -790,6 +793,73 @@
         }
       ],
       "title": "Instance Memory allocated",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "c5daef96-fb01-4c3c-b606-75891ad59434"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 3,
+        "x": 15,
+        "y": 6
+      },
+      "id": 29,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.1.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "c5daef96-fb01-4c3c-b606-75891ad59434"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "sum(ganeti_instance_oper_vcpus{cluster=\"$cluster\"})",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "Instance vCPUs allocated",
       "type": "stat"
     },
     {
@@ -926,7 +996,7 @@
           "disableTextWrap": false,
           "editorMode": "builder",
           "exemplar": false,
-          "expr": "avg(ganeti_cluster_job_wait_time{cluster=\"$cluster\"})",
+          "expr": "avg(ganeti_job_wait_time{cluster=\"$cluster\"})",
           "format": "table",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
@@ -962,7 +1032,7 @@
               },
               {
                 "color": "red",
-                "value": 1
+                "value": 10
               }
             ]
           },
@@ -1001,7 +1071,7 @@
           "disableTextWrap": false,
           "editorMode": "builder",
           "exemplar": false,
-          "expr": "ganeti_cluster_job_run_time{cluster=\"$cluster\", job_operation=\"OP_INSTANCE_START\"}",
+          "expr": "ganeti_job_run_time{cluster=\"$cluster\", job_operation=\"OP_INSTANCE_START\"}",
           "format": "table",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
@@ -1037,7 +1107,7 @@
               },
               {
                 "color": "red",
-                "value": 1
+                "value": 20
               }
             ]
           },
@@ -1076,7 +1146,7 @@
           "disableTextWrap": false,
           "editorMode": "builder",
           "exemplar": false,
-          "expr": "ganeti_cluster_job_run_time{cluster=\"$cluster\", job_operation=\"OP_INSTANCE_CREATE\"}",
+          "expr": "ganeti_job_run_time{cluster=\"$cluster\", job_operation=\"OP_INSTANCE_CREATE\"}",
           "format": "table",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
@@ -1155,7 +1225,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "avg(ganeti_cluster_job_run_time{cluster=\"$cluster\", job_operation=~\"OP_CLUSTER_VERIFY_GROUP\"}) + avg(ganeti_cluster_job_run_time{cluster=\"$cluster\", job_operation=~\"OP_CLUSTER_VERIFY\"}) + avg(ganeti_cluster_job_run_time{cluster=\"$cluster\", job_operation=~\"OP_CLUSTER_VERIFY_CONFIG\"})",
+          "expr": "avg(ganeti_job_run_time{cluster=\"$cluster\", job_operation=~\"OP_CLUSTER_VERIFY_GROUP\"}) + avg(ganeti_job_run_time{cluster=\"$cluster\", job_operation=~\"OP_CLUSTER_VERIFY\"}) + avg(ganeti_job_run_time{cluster=\"$cluster\", job_operation=~\"OP_CLUSTER_VERIFY_CONFIG\"})",
           "format": "table",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
@@ -1170,13 +1240,181 @@
       "type": "stat"
     },
     {
+      "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
         "y": 16
       },
+      "id": 34,
+      "panels": [],
+      "title": "Cluster Balancing Scores",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "c5daef96-fb01-4c3c-b606-75891ad59434"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "#EAB839",
+                "value": 8
+              },
+              {
+                "color": "red",
+                "value": 15
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "id": 35,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.1.5",
+      "repeat": "node_groups",
+      "repeatDirection": "h",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "c5daef96-fb01-4c3c-b606-75891ad59434"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "ganeti_hbal_initial_score{cluster=\"$cluster\"}",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "Current Cluster Score (Node Group $node_groups)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "c5daef96-fb01-4c3c-b606-75891ad59434"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "#EAB839",
+                "value": 7
+              },
+              {
+                "color": "red",
+                "value": 15
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      },
+      "id": 36,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.1.5",
+      "repeat": "node_groups",
+      "repeatDirection": "h",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "c5daef96-fb01-4c3c-b606-75891ad59434"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "ganeti_hbal_target_score{cluster=\"$cluster\"}",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "Achievable Score (Node Group $node_groups)",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 37
+      },
       "id": 17,
+      "panels": [],
       "title": "Cluster Statistics",
       "type": "row"
     },
@@ -1195,6 +1433,7 @@
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
+            "axisSoftMin": 0,
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
@@ -1229,8 +1468,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1244,9 +1482,9 @@
       },
       "gridPos": {
         "h": 11,
-        "w": 9,
+        "w": 12,
         "x": 0,
-        "y": 17
+        "y": 38
       },
       "id": 14,
       "options": {
@@ -1319,6 +1557,7 @@
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
+            "axisSoftMin": 0,
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
@@ -1350,8 +1589,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1365,9 +1603,9 @@
       },
       "gridPos": {
         "h": 11,
-        "w": 9,
-        "x": 9,
-        "y": 17
+        "w": 12,
+        "x": 12,
+        "y": 38
       },
       "id": 15,
       "options": {
@@ -1471,8 +1709,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1485,9 +1722,9 @@
       },
       "gridPos": {
         "h": 10,
-        "w": 9,
+        "w": 12,
         "x": 0,
-        "y": 28
+        "y": 49
       },
       "id": 31,
       "options": {
@@ -1524,12 +1761,234 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "c5daef96-fb01-4c3c-b606-75891ad59434"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 49
+      },
+      "id": 33,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "min",
+            "max",
+            "mean"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "c5daef96-fb01-4c3c-b606-75891ad59434"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "ganeti_hspace_allocatable_instances{cluster=\"$cluster\"}",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "Instances",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "Cluster Allocatable Instances",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "c5daef96-fb01-4c3c-b606-75891ad59434"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 59
+      },
+      "id": 37,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "min",
+            "max",
+            "mean"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "c5daef96-fb01-4c3c-b606-75891ad59434"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "ganeti_hbal_initial_score{cluster=\"$cluster\", node_group=\"$node_groups\"}",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "Current Score (Node Group {{node_group}})",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "c5daef96-fb01-4c3c-b606-75891ad59434"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "ganeti_hbal_target_score{cluster=\"$cluster\", node_group=\"$node_groups\"}",
+          "fullMetaSearch": false,
+          "hide": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "Achievable Score (Node Group {{node_group}})",
+          "range": true,
+          "refId": "B",
+          "useBackend": false
+        }
+      ],
+      "title": "Cluster Balancing Scores",
+      "type": "timeseries"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 38
+        "y": 69
       },
       "id": 20,
       "panels": [],
@@ -1583,8 +2042,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1597,9 +2055,9 @@
       },
       "gridPos": {
         "h": 11,
-        "w": 9,
+        "w": 12,
         "x": 0,
-        "y": 39
+        "y": 70
       },
       "id": 19,
       "options": {
@@ -1687,8 +2145,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1701,9 +2158,9 @@
       },
       "gridPos": {
         "h": 11,
-        "w": 9,
-        "x": 9,
-        "y": 39
+        "w": 12,
+        "x": 12,
+        "y": 70
       },
       "id": 21,
       "options": {
@@ -1791,8 +2248,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1806,9 +2262,9 @@
       },
       "gridPos": {
         "h": 11,
-        "w": 9,
+        "w": 12,
         "x": 0,
-        "y": 50
+        "y": 81
       },
       "id": 25,
       "options": {
@@ -1835,7 +2291,7 @@
             "uid": "c5daef96-fb01-4c3c-b606-75891ad59434"
           },
           "editorMode": "code",
-          "expr": "ganeti_node_mtotal{cluster=\"$cluster\"} - ganeti_node_mfree{cluster=\"$cluster\"}",
+          "expr": "ganeti_node_mfree{cluster=\"$cluster\"}",
           "instant": false,
           "legendFormat": "{{node}}",
           "range": true,
@@ -1892,8 +2348,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1907,9 +2362,9 @@
       },
       "gridPos": {
         "h": 11,
-        "w": 9,
-        "x": 9,
-        "y": 50
+        "w": 12,
+        "x": 12,
+        "y": 81
       },
       "id": 26,
       "options": {
@@ -1936,7 +2391,7 @@
             "uid": "c5daef96-fb01-4c3c-b606-75891ad59434"
           },
           "editorMode": "code",
-          "expr": "ganeti_node_dtotal{cluster=\"$cluster\"} - ganeti_node_dfree{cluster=\"$cluster\"}",
+          "expr": "ganeti_node_dfree{cluster=\"$cluster\"}",
           "instant": false,
           "legendFormat": "{{node}}",
           "range": true,
@@ -1994,8 +2449,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2008,9 +2462,9 @@
       },
       "gridPos": {
         "h": 11,
-        "w": 9,
+        "w": 12,
         "x": 0,
-        "y": 61
+        "y": 92
       },
       "id": 22,
       "options": {
@@ -2057,7 +2511,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 72
+        "y": 103
       },
       "id": 16,
       "panels": [],
@@ -2110,8 +2564,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2124,9 +2577,9 @@
       },
       "gridPos": {
         "h": 11,
-        "w": 9,
+        "w": 12,
         "x": 0,
-        "y": 73
+        "y": 104
       },
       "id": 3,
       "options": {
@@ -2214,8 +2667,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2229,9 +2681,9 @@
       },
       "gridPos": {
         "h": 11,
-        "w": 9,
-        "x": 9,
-        "y": 73
+        "w": 12,
+        "x": 12,
+        "y": 104
       },
       "id": 1,
       "options": {
@@ -2281,9 +2733,9 @@
     "list": [
       {
         "current": {
-          "selected": false,
-          "text": "ganeti12.live.sipgate.net",
-          "value": "ganeti12.live.sipgate.net"
+          "selected": true,
+          "text": "ganeti.example.com",
+          "value": "ganeti.example.com"
         },
         "datasource": {
           "type": "prometheus",
@@ -2305,17 +2757,44 @@
         "skipUrlSync": false,
         "sort": 0,
         "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "default",
+          "value": "default"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "c5daef96-fb01-4c3c-b606-75891ad59434"
+        },
+        "definition": "label_values(ganeti_hbal_initial_score{cluster=\"$cluster\"},node_group)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Node Groups",
+        "multi": false,
+        "name": "node_groups",
+        "options": [],
+        "query": {
+          "query": "label_values(ganeti_hbal_initial_score{cluster=\"$cluster\"},node_group)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
       }
     ]
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "Ganeti",
   "uid": "cac48b41-446d-4f8b-8960-e8854c6d00b8",
-  "version": 17,
+  "version": 35,
   "weekStart": ""
 }
