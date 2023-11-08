@@ -28,6 +28,9 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+__author__ = "Ganeti Project"
+__version__ = "1.0.0"
+
 import argparse
 import configparser
 import signal
@@ -511,7 +514,7 @@ def handle_sigterm(sig, frame):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Prometheus Exporter for Ganeti.')
+        description=f'Prometheus Exporter for Ganeti, Version {__version__}')
 
     parser.add_argument('--config',
                         default='/etc/ganeti/prometheus.ini',
@@ -521,8 +524,16 @@ def main():
                         choices=['error', 'warning', 'info', 'debug'],
                         help='set the loglevel (debug level may print '
                              'sensitive data to the console!)')
+    parser.add_argument('--version',
+                        action='store_true',
+                        help='print version number and exit')
 
     args = parser.parse_args()
+
+    if args.version:
+        print(__version__)
+        sys.exit(0)
+
     if not args.config:
         parser.error('No config file provided')
 
@@ -535,6 +546,7 @@ def main():
     else:
         loglevel = logging.INFO
     logging.basicConfig(format='%(levelname)s: %(message)s', level=loglevel)
+    logging.info('Starting prometheus-ganeti-exporter version %s', __version__)
     logging.info("Loglevel set to %s",
                  logging.getLevelName(logging.getLogger().getEffectiveLevel()))
 
@@ -549,7 +561,7 @@ def main():
                         "configuration")
         urllib3.disable_warnings()
 
-    logging.info('Initialiazing Ganeti Collector')
+    logging.info('Initializing Ganeti Collector')
     c = GanetiCollector(config)
     REGISTRY.register(c)
 
