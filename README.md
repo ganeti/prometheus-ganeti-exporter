@@ -30,4 +30,4 @@ You may set the logging level using the argument `--loglevel [error|warning|info
 
 ## Grafana
 
-If you use [Prometheus](https://prometheus.io/) with [Grafana](https://grafana.com/) you may want to take a look at the [example overview dashboard](./example-grafana-dashboard-overview.json) or the [example details dashboard](./example-grafana-dashboard-details.json).
+If you use [Prometheus](https://prometheus.io/) with [Grafana](https://grafana.com/) you may want to take a look at the [example overview dashboard](./example-grafana-dashboard-overview.json) or the [example details dashboard](./example-grafana-dashboard-details.json). All dashboards in this repository are released under the [BSD 2-Clause License](./LICENSE).
