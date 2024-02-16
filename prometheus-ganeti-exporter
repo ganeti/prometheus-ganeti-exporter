@@ -33,6 +33,7 @@ __version__ = "1.0.0"
 
 import argparse
 import configparser
+import socket
 import signal
 import subprocess
 import sys
@@ -420,6 +421,36 @@ class GanetiCollector():
 
         return [hbal_initial, hbal_target]
 
+    def collect_processes(self) -> Iterable[Metric]:
+        """Collect data on running processes.
+
+        Returns:
+            Iterable[Metric]: Running processes metrics
+        """
+
+        labels = ['cluster', 'instance', 'process']
+        processes = {
+            b'ganeti-noded': 0,
+            b'ganeti-confd': 0,
+            b'ganeti-mond': 0,
+            b'ganeti-wconfd': 0
+        }
+        gauge = self._create_gauge('instance', 'process', labels,
+                                description=f'Number of running processes')
+
+        plist = subprocess.Popen(['ps', '-eo' ,'args'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, _ = plist.communicate()
+        for process in stdout.splitlines():
+            for k in processes.keys():
+                if k in process:
+                    processes[k] += 1
+
+        for k,v in processes.items():
+            gauge.add_metric((self.cluster_name, socket.getfqdn(), k.decode()), v)
+
+        return [gauge,]
+
+
     @scrape_duration.time()
     def collect(self) -> Iterable[Metric]:
         """Entry point for the Prometheus server to update and
@@ -446,6 +477,8 @@ class GanetiCollector():
             metrics.extend(self.collect_hspace_metrics(hspace_data))
         if hbal_data is not None:
             metrics.extend(self.collect_hbal_metrics(hbal_data))
+        if self.config["process_collection"]:
+            metrics.extend(self.collect_processes())
 
         return metrics
 
@@ -492,7 +525,8 @@ def parse_config(path: str) -> Iterable[dict]:
         'hbal_path': config.get('htools', 'hbal_path',
                                 fallback='/usr/bin/hbal'),
         'hbal_extra_parameters': config.get('htools', 'hbal_extra_parameters',
-                                            fallback='')
+                                            fallback=''),
+        'process_collection': config.getboolean('processes', 'enabled', fallback=False),
     }
 
     logging.debug('Loaded configuration: %s', config_data)
