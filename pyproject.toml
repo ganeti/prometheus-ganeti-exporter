@@ -7,7 +7,7 @@ name = "prometheus-ganeti-exporter"
 version = "1.1.0"
 description = "Prometheus exporter for Ganeti cluster statistics"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = "BSD-2-Clause"
 authors = [
     { name = "Ganeti Project" },
@@ -29,7 +29,6 @@ classifiers = [
     "Intended Audience :: System Administrators",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -91,7 +90,7 @@ python_functions = ["test_*"]
 addopts = "-v --strict-markers"
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
