@@ -12,12 +12,6 @@ For production use, install the package:
 pip install .
 ```
 
-For development, install in editable mode with dev dependencies:
-
-```shell
-pip install -e ".[dev]"
-```
-
 ## Usage
 
 You can use the provided [systemd service file](./prometheus-ganeti-exporter.service) to run the service in the background. Please create or use a non-privileged system user for the service to avoid running it as `root`! The RAPI user requires read-only permissions for the exporter to work.
@@ -47,3 +41,17 @@ You may set the logging level using the argument `--loglevel [error|warning|info
 ## Grafana
 
 If you use [Prometheus](https://prometheus.io/) with [Grafana](https://grafana.com/) you may want to take a look at the [example overview dashboard](./example-grafana-dashboard-overview.json) or the [example details dashboard](./example-grafana-dashboard-details.json). All dashboards in this repository are released under the [BSD 2-Clause License](./LICENSE).
+
+## Development
+
+For development, install in editable mode with dev dependencies:
+
+```shell
+pip install -e ".[dev]"
+```
+
+Run the tests locally:
+
+```shell
+PYTHONPATH=src python3 -m pytest
+```
