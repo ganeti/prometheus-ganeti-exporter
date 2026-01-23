@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 """prometheus exporter for Ganeti cluster statistics"""
 
 #
@@ -28,9 +27,6 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-__author__ = "Ganeti Project"
-__version__ = "1.0.0"
-
 import argparse
 import configparser
 import signal
@@ -44,6 +40,8 @@ import requests
 import urllib3
 from prometheus_client import Summary, start_http_server
 from prometheus_client.core import REGISTRY, GaugeMetricFamily, Metric
+
+from . import __version__
 
 
 class GanetiCollector():

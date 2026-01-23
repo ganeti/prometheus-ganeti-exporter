@@ -1,7 +1,9 @@
 [Unit]
 Description=Prometheus Ganeti Exporter
+After=network.target
 
 [Service]
+Type=simple
 Restart=always
 # You should create/use a non-privileged user for this service!
 # User=prometheus
