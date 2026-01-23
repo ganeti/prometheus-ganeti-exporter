@@ -476,36 +476,52 @@ class GanetiCollector():
         job_end_time = self._create_gauge('cluster_verify', 'job_end_time', ['cluster', ],
                                           description='End timestamp of cluster-verify jobs (Unix time)')
 
-        parent_job_id = None
+        # Find most recent completed cluster-verify job where all children are also completed
+        completed_states = {'success', 'error', 'canceled'}
+        parent_job = None
+        child_jobs_with_results = {}
+
         for job in reversed(jobs):
-            if self._is_cluster_verify_job(job):
-                parent_job_id = job['id']
+            if not (self._is_cluster_verify_job(job) and job.get('status') in completed_states):
+                continue
+
+            # Fetch full parent job details
+            candidate_parent = self._gnt_request(f'/2/jobs/{job["id"]}')
+            if not candidate_parent:
+                continue
+
+            # Get child job IDs
+            child_job_ids = self._get_cluster_verify_child_job_ids(candidate_parent)
+            if not child_job_ids:
+                continue
+
+            # Check if all children are completed
+            candidate_children = {}
+            all_children_completed = True
+            for child_id in child_job_ids:
+                child_job = self._gnt_request(f'/2/jobs/{child_id}')
+                if not child_job or child_job.get('status') not in completed_states:
+                    all_children_completed = False
+                    break
+                check_result = self._extract_cluster_verify_result(child_job)
+                candidate_children[child_id] = (child_job, check_result)
+
+            # If all children completed, use this parent job
+            if all_children_completed:
+                parent_job = candidate_parent
+                child_jobs_with_results = candidate_children
                 break
 
-        if parent_job_id is None:
-            return [job_status, job_start_time, job_end_time]
-
-        parent_job = self._gnt_request(f'/2/jobs/{parent_job_id}')
-        if not parent_job:
-            logging.debug('Failed to fetch cluster-verify parent job %s', parent_job_id)
+        if parent_job is None:
             return [job_status, job_start_time, job_end_time]
 
         parent_job_id_str = str(parent_job['id'])
-        child_job_ids = self._get_cluster_verify_child_job_ids(parent_job)
-
-        # Fetch full child job details (bulk query doesn't include opresult)
-        child_jobs_with_results = {}
-        for child_id in child_job_ids:
-            child_job = self._gnt_request(f'/2/jobs/{child_id}')
-            if child_job:
-                check_result = self._extract_cluster_verify_result(child_job)
-                child_jobs_with_results[child_id] = (child_job, check_result)
 
         child_check_results = [result for _, result in child_jobs_with_results.values()]
         parent_check_result = bool(child_check_results and all(child_check_results))
 
-        logging.debug('Processing cluster-verify job %s: %d/%d children found, result=%s',
-                     parent_job_id_str, len(child_jobs_with_results), len(child_job_ids),
+        logging.debug('Processing cluster-verify job %s: %d completed children, result=%s',
+                     parent_job_id_str, len(child_jobs_with_results),
                      parent_check_result)
 
         self._add_cluster_verify_job_metrics(parent_job, parent_check_result, job_status, job_start_time, job_end_time)
