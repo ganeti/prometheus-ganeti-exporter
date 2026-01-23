@@ -1,0 +1,8 @@
+include README.md
+include LICENSE
+include CONTRIBUTING.md
+include prometheus.ini.example
+include prometheus-ganeti-exporter.service
+include example-grafana-dashboard-*.json
+include pyproject.toml
+recursive-include src *.py
