@@ -459,7 +459,7 @@ class GanetiCollector():
             status_value = 1 if check_result else 0
             job_status.add_metric(status_label_values, status_value)
 
-        label_values = (self.cluster_name, job_id, op_id, parent_job_id)
+        label_values = (self.cluster_name, job_id, op_id, check_result_str, parent_job_id)
         start_ts = self._convert_ganeti_timestamp(cluster_verify_job.get('start_ts'))
         if start_ts is not None:
             job_start_time.add_metric(label_values, start_ts)
@@ -473,7 +473,7 @@ class GanetiCollector():
         """Export metrics for most recent cluster-verify job and its children"""
 
         status_labels = ['cluster', 'job_id', 'opcode', 'job_status', 'check_result', 'parent_job_id']
-        time_labels = ['cluster', 'job_id', 'opcode', 'parent_job_id']
+        time_labels = ['cluster', 'job_id', 'opcode', 'check_result', 'parent_job_id']
 
         job_status = self._create_gauge('cluster_verify', 'job', status_labels,
                                         description='Cluster-verify job status (1=check passed, 0=check failed)')
