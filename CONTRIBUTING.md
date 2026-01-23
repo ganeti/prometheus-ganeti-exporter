@@ -62,7 +62,12 @@ commits as you want, making sure that the commit messages are small and concise
 within the context of your changes. The commit messages are going to be useful
 for the reviewer, so be reasonable. Favor small Pull Requests as they are easier
 to review and they provide feedback early. Avoid making huge changes just to see
-the reviewer asking you to restart from scratch..
+the reviewer asking you to restart from scratch.
+
+Add tests for your newly added code and verify that all tests still pass:
+```shell
+PYTHONPATH=src python3 -m pytest
+```
 
 Remember to use the --signoff flag when committing. You may also push these
 changes to your personal fork by running `git push origin <feature_branchname>`
