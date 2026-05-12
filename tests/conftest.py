@@ -100,7 +100,8 @@ def sample_nodes():
             'mtotal': 65536,
             'pinst_cnt': 5,
             'sinst_cnt': 3,
-            'offline': False
+            'offline': False,
+            'vm_capable': True,
         },
         {
             'name': 'node2.example.com',
@@ -111,7 +112,8 @@ def sample_nodes():
             'mtotal': 65536,
             'pinst_cnt': 7,
             'sinst_cnt': 2,
-            'offline': False
+            'offline': False,
+            'vm_capable': True,
         },
         {
             'name': 'node3.example.com',
@@ -122,7 +124,8 @@ def sample_nodes():
             'mtotal': 32768,
             'pinst_cnt': 0,
             'sinst_cnt': 0,
-            'offline': True
+            'offline': True,
+            'vm_capable': True,
         }
     ]
 

@@ -247,26 +247,38 @@ class GanetiCollector():
         metric = create_method(src_type, name, labels)
         return metric
 
-
     def collect_node_metrics(self, nodes: Iterable[dict]) -> Iterable[Metric]:
         """Collect nodes metrics and return Itereable of Prometheus metrics"""
         labels = ['cluster', 'node']
 
         metrics = {}
+        vm_capable_metric = self._create_gauge(
+            'node', 'vm_capable', labels,
+            description='Whether the node is capable of hosting virtual machines'
+        )
+
         for node in nodes:
             label_values = (self.cluster_name, node['name'])
+            vm_capable = node['vm_capable']
+            vm_capable_metric.add_metric(label_values, 1 if vm_capable else 0)
+            vm_capable_only_metrics = ['ctotal', 'dfree', 'dtotal', 'mfree', 'mtotal', 'pinst_cnt', 'sinst_cnt']
             for metric_name in node.keys():
-                if metric_name in self._metric_family:
-                    key = f'node_{metric_name}'
-                    if not key in metrics:
-                        metric = self._create_metric('node', metric_name,
-                                                     labels)
-                        metrics[key] = metric
-                    else:
-                        metric = metrics[key]
-                    metric.add_metric(label_values, node[metric_name])
+                if metric_name not in self._metric_family:
+                    continue
+                if not vm_capable and metric_name in vm_capable_only_metrics:
+                    continue
+                key = f'node_{metric_name}'
+                if not key in metrics:
+                    metric = self._create_metric('node', metric_name, labels)
+                    metrics[key] = metric
+                else:
+                    metric = metrics[key]
+                metric.add_metric(label_values, node[metric_name])
 
-        return list(metrics.values())
+        result = list(metrics.values())
+        if list(vm_capable_metric.samples):
+            result.append(vm_capable_metric)
+        return result
 
 
     def collect_instance_metrics(self,

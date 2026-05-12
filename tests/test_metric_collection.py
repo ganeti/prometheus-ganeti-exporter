@@ -48,19 +48,21 @@ class TestNodeMetricCollection:
                 'dfree': 500000,
                 'dtotal': 1000000,
                 'mfree': 32768,
-                'mtotal': 65536
+                'mtotal': 65536,
+                'vm_capable': True,
             }
         ]
 
         metrics = collector.collect_node_metrics(nodes)
 
-        assert len(metrics) == 5  # ctotal, dfree, dtotal, mfree, mtotal
+        assert len(metrics) == 6  # ctotal, dfree, dtotal, mfree, mtotal, vm_capable
         metric_names = {m.name for m in metrics}
         assert 'ganeti_node_ctotal' in metric_names
         assert 'ganeti_node_dfree' in metric_names
         assert 'ganeti_node_dtotal' in metric_names
         assert 'ganeti_node_mfree' in metric_names
         assert 'ganeti_node_mtotal' in metric_names
+        assert 'ganeti_node_vm_capable' in metric_names
 
     @patch('prometheus_ganeti_exporter.__main__.requests.get')
     def test_collect_node_metrics_multiple_nodes(self, mock_get, sample_config,
@@ -93,6 +95,57 @@ class TestNodeMetricCollection:
         assert len(metrics) == 0
 
     @patch('prometheus_ganeti_exporter.__main__.requests.get')
+    def test_collect_node_metrics_arbitrator_node(
+            self, mock_get, sample_config, mock_cluster_info):
+        """Arbitrator nodes (vm_capable=False) must only emit vm_capable,
+        not CPU/disk/memory or instance-count metrics."""
+        mock_get.return_value = Mock(status_code=200, json=lambda: mock_cluster_info)
+
+        collector = GanetiCollector(sample_config)
+        nodes = [
+            {
+                'name': 'node1.example.com',
+                'ctotal': 32,
+                'dfree': 500000,
+                'dtotal': 1000000,
+                'mfree': 32768,
+                'mtotal': 65536,
+                'pinst_cnt': 3,
+                'sinst_cnt': 1,
+                'vm_capable': True,
+            },
+            {
+                'name': 'arbitrator.example.com',
+                'dfree': None,
+                'dtotal': None,
+                'mfree': None,
+                'mtotal': None,
+                'pinst_cnt': 0,
+                'sinst_cnt': 0,
+                'vm_capable': False,
+            },
+        ]
+
+        metrics = collector.collect_node_metrics(nodes)
+        metric_names = {m.name for m in metrics}
+
+        # vm_capable gauge present for both nodes
+        assert 'ganeti_node_vm_capable' in metric_names
+        vm_capable = next(m for m in metrics if m.name == 'ganeti_node_vm_capable')
+        values = {s.labels['node']: s.value for s in vm_capable.samples}
+        assert values['node1.example.com'] == 1
+        assert values['arbitrator.example.com'] == 0
+
+        # CPU/disk/memory/instance-count metrics absent for arbitrator
+        for name in ('ganeti_node_ctotal', 'ganeti_node_dtotal', 'ganeti_node_dfree',
+                     'ganeti_node_mtotal', 'ganeti_node_mfree',
+                     'ganeti_node_pinst_cnt', 'ganeti_node_sinst_cnt'):
+            if name in metric_names:
+                metric = next(m for m in metrics if m.name == name)
+                node_names = [s.labels['node'] for s in metric.samples]
+                assert 'arbitrator.example.com' not in node_names
+
+    @patch('prometheus_ganeti_exporter.__main__.requests.get')
     def test_collect_node_metrics_with_namespace(self, mock_get, mock_cluster_info):
         """Test that namespace prefix is applied to metrics"""
         mock_get.return_value = Mock(status_code=200, json=lambda: mock_cluster_info)
@@ -110,7 +163,7 @@ class TestNodeMetricCollection:
         }
 
         collector = GanetiCollector(config)
-        nodes = [{'name': 'node1', 'ctotal': 16}]
+        nodes = [{'name': 'node1', 'ctotal': 16, 'vm_capable': True}]
         metrics = collector.collect_node_metrics(nodes)
 
         # Check that namespace is applied
